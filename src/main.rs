@@ -15,5 +15,5 @@ fn main() {
 
     println!("{}: command not found", input);
 
-    let _ = std::io::stdin().read(&mut [0u8]).unwrap();
+    // let _ = std::io::stdin().read(&mut [0u8]).unwrap();
 }
