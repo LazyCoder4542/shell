@@ -13,6 +13,9 @@ fn main() {
         let input = input.trim();
 
         // Eval
+        if input == "exit" {
+            break;
+        }
         // here...
 
         // Print
