@@ -1,46 +1,16 @@
 #[allow(unused_imports)]
 use std::io::{self, Write, Read};
-
-fn exit(args: &[&str]) -> Result<String, String> {
-    if args.len() > 1 {
-        Err(String::from("too many arguments"))
-    }
-    else {
-        Ok(String::new())
-    }
-}
+use codecrafters_shell::{Echo, Engine, Exit, Registry, Type};
 
 fn main() {
-    loop {
-        // Read
-        let mut input = String::new();
-        print!("$ ");
-        io::stdout().flush().unwrap();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read input");
-        let input = input.trim();
-        let args: Vec<&str> = input.split(' ').collect();
+    // Setup Registry
+    let mut reg = Registry::new();
+    reg.register_command("exit", Box::new(Exit {}));
+    reg.register_command("echo", Box::new(Echo {}));
+    reg.register_command("type", Box::new(Type {}));
 
-        // Eval
-        if args[0] == "exit" {
-            match exit(&args[1..]) {
-                Ok(out) => {
-                    println!("{}", out);
-                    break;
-                },
-                Err(e) => println!("exit: {e}")
-            }
-        }
-        else if args[0] == "echo" {
-            println!("{}", args[1..].join(" "));
-        }
-        else {
-            println!("{}: command not found", args[0]);
+    // Start Engine
+    let mut eng = Engine::new(&reg);
 
-        }
-
-        // Repeat
-    }
-    // let _ = std::io::stdin().read(&mut [0u8]).unwrap();
+    eng.run();
 }
