@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use is_executable::is_executable;
+use std::process::Command as PCMD;
 
 pub struct Registry {
     commands: HashMap<String, Box<dyn Command>>
@@ -109,9 +110,17 @@ impl<'a > Engine<'a > {
         if let Some(cmd) = self.registry.get_command(cmd_name) {
             cmd.exec(args, self)
         }
-        else if let Some(exec_path) = Registry::get_exec(cmd_name) {
-            println!("{}", exec_path.display());
-            Ok(None)
+        else if let Some(_exec_path) = Registry::get_exec(cmd_name) {
+            let status = PCMD::new(cmd_name).args(args).status();
+
+            match status {
+                Ok(_state) => {
+                    Ok(None)
+                }
+                Err(e) => {
+                    Err(e.to_string())
+                }
+            }
         }
         else {
             Err(String::from("command not found"))
