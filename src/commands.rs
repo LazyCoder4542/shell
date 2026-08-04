@@ -1,4 +1,6 @@
 use crate::engine::{Engine, Registry};
+use std::env;
+
 pub trait Command {
     fn exec(&self, _args: &[&str], _engine: &mut Engine) -> Result<Option<String>, String> {
         Ok(None)
@@ -47,5 +49,16 @@ impl Command for Type {
             }
         }
         Ok(Some(out.join("\n")))
+    }
+}
+
+pub struct Pwd {}
+
+impl Command for Pwd {
+    fn exec(&self, _args: &[&str], _engine: &mut Engine) -> Result<Option<String>, String> {
+        if !_args.is_empty() {
+            return Err(String::from("too many arguments"));
+        }
+        Ok(Some(env::current_dir().unwrap().to_string_lossy().to_string()))
     }
 }
