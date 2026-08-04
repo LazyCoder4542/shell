@@ -39,6 +39,28 @@
 
 ---
 
+### Day 3 — 2026-08-03
+- **Goal today:** get a real REPL flow going and start adding builtins
+- **What I did:**
+  - implemented the read-eval-loop; added `exit`, `echo`, and `type`
+  - hit the point where the eval branch was becoming an if/else chain, so I refactored into a real architecture:
+    - `Command` trait with a default `exec` — each builtin (Exit, Echo, Type) is its own struct implementing it
+    - `Registry` holding a `HashMap<String, Box<dyn Command>>` for name → command lookup
+    - `Engine` owning a borrowed `&Registry` plus a `State` enum (Init / Running / Exiting), running the REPL and dispatching
+    - split into modules: main / engine / parser / commands
+    - `Parser` turning input into `Token::Word(..)` values instead of raw string splits
+- **Design decisions:**
+  - went with trait objects (`Box<dyn Command>`) so commands are registered dynamically and dispatched via the registry
+  - `type` checks the registry directly, so it stays correct as commands are added (no hardcoded builtin list)
+  - exit is modeled as a state transition (`engine.exit()` flips state to Exiting) rather than an inline `break`
+- **What I learned:**
+  - builtins vs executables — builtins are handled by the shell itself, in-process; executables are separate programs found on PATH. `type` reports which is which.
+  - more on shadowing: the old value isn't necessarily dropped when shadowed — it may be moved out, borrowed by the new binding, or just linger in scope until the block ends.
+  - applied Chapter 17 directly — trait objects + a registry is a clean answer to "dispatch over a growing set of commands." The enum-based State from Day 2 is doing real work here.
+- **Next session starts with:** Locating and running executables
+
+---
+
 ### Day 2 — 2026-08-02
 - **Goal today:** read Rust Book ch.17 (OOP in Rust)
 - **What I did:** worked through structs + traits as Rust's answer to OOP patterns; generics, trait bounds, trait objects; Box and heap data; the state-transition pattern with Option
@@ -83,3 +105,28 @@
 - Problem: a method wants to *replace* a state field (old state → new state), but the method only has `&mut self`. You can't move a value out of a borrow — that would leave the field holding nothing, which Rust forbids.
 - Fix: make the field `Option<Box<dyn State>>`. Call `self.state.take()` — this swaps `None` in and hands you ownership of the old `Some(state)`. Now you own it, can consume it to compute the next state, and write the new `Some(next)` back.
 - The `Option` is the placeholder that keeps the field valid during the swap. `take()` is the "give me the value, leave None behind" move.
+
+### Builtins vs executables
+- Builtin: a command the shell runs itself, in-process (e.g. exit, echo, type, cd). No new process; some (like cd) *must* be builtins because they change the shell's own state.
+- Executable: a standalone program on disk, found by searching PATH, run in a child process.
+- `type <name>` reports the category — "shell builtin" vs a resolved path — which is why type has to know the builtin list.
+
+### Shadowing: what happens to the old value
+- Shadowing rebinds a name; it does NOT automatically drop the previous value.
+- The old value's fate depends on how it was used: it may be moved out (ownership transferred), it may be borrowed by the new binding, or it may just linger in scope until the block ends.
+- Refinement from Day 1's note: `.trim()` borrows the original String, so the original must stay alive — shadowing the name doesn't kill the value the borrow points at.
+
+### Command dispatch: trait object + registry
+- Each command = a struct implementing a shared `Command` trait. Register them by name in a HashMap<String, Box<dyn Command>>.
+- Dispatch = look up the name, call `.exec()` on the trait object. Adding a command is just: define a struct, impl Command, register it — no touching the eval logic.
+- This is the "heterogeneous collection" case trait objects exist for: many different command types stored and called through one interface.
+- Contrast with the earlier if/else chain: that grew linearly and mixed parsing with dispatch. The registry separates "what commands exist" from "how the loop runs."
+
+### Lifetime parameters & annotations
+- Where it showed up: `Engine<'a>` holds `registry: &'a Registry`. The `'a` says "this Engine borrows a Registry and cannot outlive it." The Registry created in `main` must live at least as long as the Engine that borrows it — the compiler enforces that.
+- A lifetime parameter on a struct isn't a value; it's a promise: any instance ties its own validity to the data it references. That's also why the impl block is `impl<'a> Engine<'a>` — the impl has to be generic over the same lifetime it uses.
+- Storing a reference in a struct *requires* naming the lifetime — lifetime elision doesn't apply to struct definitions. Without `'a`, you couldn't hold `&Registry` as a field at all. The alternatives would be to own the Registry (no borrow, no lifetime) or wrap it (Rc, etc.).
+- "Bound" specifically means an *outlives* constraint:
+  - `'a: 'b` reads "'a outlives 'b" — 'a lasts at least as long as 'b.
+  - `T: 'a` means every reference inside `T` stays valid for at least `'a`.
+  - `T: 'static` means `T` holds no non-static borrows — it could live for the whole program.

@@ -1,4 +1,4 @@
-use crate::engine::{Engine};
+use crate::engine::{Engine, Registry};
 pub trait Command {
     fn exec(&self, _args: &[&str], _engine: &mut Engine) -> Result<Option<String>, String> {
         Ok(None)
@@ -33,15 +33,18 @@ impl Command for Type {
         if _args.is_empty() {
             return Ok(None)
         }
-        
-        let s1 = " is a shell builtin";
-        let s2 = ": not found";
 
         let mut out: Vec<String> = Vec::with_capacity(_args.len());
         for arg in _args.iter() {
-            out.push(format!("{}{}", arg,
-                if _engine.registry.command_exists(arg) {s1} else {s2}
-            ));
+            if _engine.registry.command_exists(arg) {
+                out.push(format!("{} is a shell builtin", arg));
+            }
+            else if let Some(p) = Registry::get_exec(arg) {
+                out.push(format!("{} is {}", arg, &p.to_string_lossy()));
+            }
+            else {
+                out.push(format!("{}: not found", arg));
+            }
         }
         Ok(Some(out.join("\n")))
     }
