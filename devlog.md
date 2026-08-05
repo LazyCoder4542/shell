@@ -39,6 +39,23 @@
 
 ---
 
+### Day 4 — 2026-08-04
+- **Goal today:** find and run external executables
+- **What I did:**
+  - added `Registry::get_exec` — searches each directory in `PATH` for a matching, executable file and returns its `PathBuf`
+  - extended `Engine::exec`: if a name isn't a registered builtin, fall through to PATH lookup and run it as a child process
+  - ran the found command with `process::Command`, waiting on it via `.status()`
+- **What I learned:**
+  - `process::Command` — the builder for spawning child processes: `Command::new(name).args(args).status()`. `.status()` runs the child, inherits the parent's stdin/stdout/stderr by default, waits for it to finish, and returns `Result<ExitStatus>`. That's why I return `Ok(None)` — the child already wrote straight to the terminal, so the shell has nothing to print itself.
+  - `.status()` vs `.output()` — status inherits the terminal and gives just the exit code; output *captures* stdout/stderr into the returned struct instead of letting it reach the screen. I want inherited stdio here, so status is right.
+  - `env::var_os("PATH")` returns `Option<OsString>`, not `String` — env vars and paths aren't guaranteed to be valid UTF-8, so the OS-string types avoid a lossy conversion.
+  - `env::split_paths` splits the PATH variable on the platform separator (`:` on Unix, `;` on Windows) — portable, instead of hardcoding `:`.
+  - building paths with `PathBuf` + `.join(name)` rather than string concatenation — handles separators correctly across platforms.
+  - checking a file is actually runnable (`is_executable` / the exec permission bit) — existence alone isn't enough; a non-executable file with a matching name shouldn't be picked.
+- **Next session starts with:** navigation — `pwd` and `cd`
+
+---
+
 ### Day 3 — 2026-08-03
 - **Goal today:** get a real REPL flow going and start adding builtins
 - **What I did:**
@@ -130,3 +147,14 @@
   - `'a: 'b` reads "'a outlives 'b" — 'a lasts at least as long as 'b.
   - `T: 'a` means every reference inside `T` stays valid for at least `'a`.
   - `T: 'static` means `T` holds no non-static borrows — it could live for the whole program.
+
+### Running external commands (process::Command)
+- `Command::new(prog).args(args).status()` spawns a child process, inherits the parent's stdio, blocks until it exits, and returns Result<ExitStatus>.
+- `.status()` = let the child use the real terminal, get back only the exit code. `.output()` = capture stdout/stderr into a buffer (child's output does NOT reach the screen). `.spawn()` = start it and get a handle back without waiting (needed later for pipes/background jobs).
+- Because status inherits stdio, a successful external command produces its own output — the shell shouldn't also print anything, hence returning "no output" from the dispatcher.
+
+### PATH resolution
+- PATH is a list of directories joined by the platform separator. To resolve a command name: split PATH, join each dir with the name, and take the first candidate that exists AND is executable.
+- Use the OS-string layer: `env::var_os` (Option<OsString>) + `env::split_paths` — paths aren't guaranteed UTF-8, and split_paths knows the platform separator.
+- Build candidates with `PathBuf::join`, not string concatenation, so separators are correct cross-platform.
+- Existence isn't sufficient — check the executable bit too, so a plain data file with the right name isn't mistaken for a program.
