@@ -71,25 +71,22 @@ impl Command for Cd {
         if _args.len() > 1 {
             return Err(String::from("too many arguments"));
         }
-        let home_dir = env::home_dir().unwrap().to_string_lossy().to_string();
-        let sep_char = path::MAIN_SEPARATOR_STR;
-        let new_path: &str = match _args.get(0) {
-            Some(val) => {val},
-            None => &home_dir
-        };
-        let parts: Option<(&str, &str)> = new_path.split_once(sep_char);
-        let new_path: String = match parts {
-            Some(x) => {
-                format!("{}{}{}", if x.0 == "~" {&home_dir} else {x.0}, sep_char, x.1)
-            },
-            None => {
-                if new_path == "~" {String::from(home_dir)} else {new_path.to_string()}
-            }
-        };
-        let p = path::Path::new(&new_path);
-        match env::set_current_dir(p) {
-            Ok(()) => {Ok(None)}
-            Err(_e) => {Err(format!("{}: No such file or directory", p.to_string_lossy()))}
+        let home_dir = env::home_dir().unwrap();
+        // let sep_char = path::MAIN_SEPARATOR_STR;
+        let target = _args.get(0).copied().unwrap_or("~");
+
+        let new_path: path::PathBuf = if target == "~" {
+            home_dir
         }
+        else if let Some(rest) = target.strip_prefix("~/") {
+            home_dir.join(rest)
+        }
+        else {
+            path::PathBuf::from(home_dir)
+        };
+
+        env::set_current_dir(&new_path)
+            .map(|_| None)
+            .map_err(|_| format!("{}: No such file or directory", new_path.display()))
     }
-    }
+}

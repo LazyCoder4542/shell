@@ -7,6 +7,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use is_executable::is_executable;
 use std::process::Command as PCMD;
+extern crate term_size;
 
 pub struct Registry {
     commands: HashMap<String, Box<dyn Command>>
@@ -98,6 +99,10 @@ impl<'a > Engine<'a > {
         }
     }
     fn read_input() -> String {
+      // text wrapping
+        if let Some((w, _h)) = term_size::dimensions() {
+          print!("%{}\r", " ".repeat(w-1));
+        }
         let mut input = String::new();
         print!("$ ");
         io::stdout().flush().unwrap();

@@ -158,3 +158,18 @@
 - Use the OS-string layer: `env::var_os` (Option<OsString>) + `env::split_paths` — paths aren't guaranteed UTF-8, and split_paths knows the platform separator.
 - Build candidates with `PathBuf::join`, not string concatenation, so separators are correct cross-platform.
 - Existence isn't sufficient — check the executable bit too, so a plain data file with the right name isn't mistaken for a program.
+
+### Working directory: pwd / cd
+- The working directory is per-process state. `env::current_dir()` reads it, `env::set_current_dir()` changes it.
+- This is exactly why cd must be a builtin, not an external program: a child process can change its *own* cwd, but it can't reach back and change the parent shell's. So the shell must do it in-process.
+- Path types recap: paths live in the OsStr/OsString world (not guaranteed UTF-8). `to_string_lossy()` is the escape hatch to a printable `&str`/String when I need to display or pattern-match them.
+
+### env::home_dir() — the deprecation history
+- `std::env::home_dir` was deprecated for years because its Windows behavior was considered buggy/misleading; the common advice was to use the `dirs`/`home` crates instead.
+- It was un-deprecated in Rust 1.85 (2025) once the behavior was fixed, so calling it directly is fine again on a current toolchain. Worth knowing in case older docs/lints still flag it.
+
+### Tilde (~) expansion
+- ~ expansion is a *shell* responsibility, not the OS's — the kernel has no notion of "~". The shell must rewrite a leading `~` to the home path before handing it to set_current_dir.
+- My approach: split off the first path component; if it's exactly `~`, replace it with home and re-join the rest. Bare `~` (no separator) maps straight to home.
+- ~ (current user) is an *environment* lookup — $HOME on Unix, the user-profile vars on Windows — which is why env::home_dir() suffices for it.
+- ~otheruser (another user's home) is a *user-database* lookup, not an env var: $HOME only ever holds my own home, so resolving ~alice means consulting the system user db (/etc/passwd via NSS on Unix, i.e. getpwnam). Different mechanism — hence a later-day problem, and Unix-only (Windows has no real ~otheruser convention).
