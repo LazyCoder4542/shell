@@ -72,6 +72,7 @@ impl Command for Cd {
             return Err(String::from("too many arguments"));
         }
         let home_dir = env::home_dir().unwrap();
+        let current_dir = env::current_dir().unwrap(); 
         // let sep_char = path::MAIN_SEPARATOR_STR;
         let target = _args.get(0).copied().unwrap_or("~");
 
@@ -81,8 +82,11 @@ impl Command for Cd {
         else if let Some(rest) = target.strip_prefix("~/") {
             home_dir.join(rest)
         }
+        else if let Some(_) = target.strip_prefix("/") {
+            path::PathBuf::from(target)
+        }
         else {
-            path::PathBuf::from(home_dir)
+            current_dir.join(target)
         };
 
         env::set_current_dir(&new_path)
