@@ -10,8 +10,17 @@ impl Parser {
         let mut curr = String::new();
         let mut singleQ: bool = false;
         let mut doubleQ: bool = false;
+        let mut escape: bool = false;
         for c in input.chars() {
+          if escape {
+            curr.push(c);
+            escape = false;
+            continue;
+          }
           match c {
+            '\\' => {
+              escape = true;
+            }
             '\'' => {
               if !doubleQ {singleQ = !singleQ;}
               else {curr.push('\'');}
