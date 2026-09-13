@@ -12,30 +12,40 @@ impl Parser {
         let mut doubleQ: bool = false;
         let mut escape: bool = false;
         for c in input.chars() {
-          if escape {
+          if singleQ {
+            if c != '\'' {
+              curr.push(c);
+            }
+            else {singleQ = false;}
+          }
+          else if doubleQ {
+            if c != '"' {
+              curr.push(c);
+            }
+            else {doubleQ = false;}
+          }
+          else if escape {
             curr.push(c);
             escape = false;
-            continue;
           }
-          match c {
-            '\\' => {
-              escape = true;
-            }
-            '\'' => {
-              if !doubleQ {singleQ = !singleQ;}
-              else {curr.push('\'');}
-            }
-            '"' => {
-              if !singleQ {doubleQ = !doubleQ;}
-              else {curr.push('"');}
-            }
-            ' ' => {
-              if singleQ || doubleQ {curr.push(' ');}
-              else if !curr.is_empty() {
-                result.push(Token::Word(std::mem::take(&mut curr)));
+          else {
+            match c {
+              '\\' => {
+                escape = true;
               }
+              '\'' => {
+                singleQ = true;
+              }
+              '"' => {
+                doubleQ = !doubleQ;
+              }
+              ' ' => {
+                if !curr.is_empty() {
+                  result.push(Token::Word(std::mem::take(&mut curr)));
+                }
+              }
+              _ => curr.push(c)
             }
-            _ => curr.push(c)
           }
         }
         if !curr.is_empty() {
