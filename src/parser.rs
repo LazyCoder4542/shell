@@ -11,6 +11,7 @@ impl Parser {
         let mut singleQ: bool = false;
         let mut doubleQ: bool = false;
         let mut escape: bool = false;
+        let mut d_escape: bool = false;
         for c in input.chars() {
           if singleQ {
             if c != '\'' {
@@ -18,8 +19,22 @@ impl Parser {
             }
             else {singleQ = false;}
           }
+          else if d_escape {
+            match c {
+                '\\' | '"' | '$' => curr.push(c),
+                'n' => curr.push('\n'),
+                _ => {
+                  curr.push('\\');
+                  curr.push(c);
+                }
+            }
+            d_escape = false;
+          }
           else if doubleQ {
-            if c != '"' {
+            if c == '\\' {
+              d_escape = true;
+            }
+            else if c != '"' {
               curr.push(c);
             }
             else {doubleQ = false;}
