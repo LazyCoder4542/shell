@@ -8,14 +8,20 @@ impl Parser {
     pub fn parse(input: &str) -> Vec<Token> {
         let mut result: Vec<Token> = Vec::new();
         let mut curr = String::new();
-        let mut b: bool = false;
+        let mut singleQ: bool = false;
+        let mut doubleQ: bool = false;
         for c in input.chars() {
           match c {
             '\'' => {
-              b = !b;
+              if !doubleQ {singleQ = !singleQ;}
+              else {curr.push('\'');}
+            }
+            '"' => {
+              if !singleQ {doubleQ = !doubleQ;}
+              else {curr.push('"');}
             }
             ' ' => {
-              if b {curr.push(' ');}
+              if singleQ || doubleQ {curr.push(' ');}
               else if !curr.is_empty() {
                 result.push(Token::Word(std::mem::take(&mut curr)));
               }
